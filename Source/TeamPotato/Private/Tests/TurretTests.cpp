@@ -13,6 +13,7 @@
 #include "EngineUtils.h"
 #include "Kismet/GameplayStatics.h"
 #include "Player/TestCharacter.h"
+#include "GameFramework/ProjectileMovementComponent.h"
 #include <limits>
 
 namespace
@@ -88,6 +89,7 @@ bool FTurretTargetTest::RunTest(const FString& Parameters)
     Fixture.Enemy(FVector(2000, 0, 100));
     TestTrue(TEXT("Nearest living enemy selected"), Turret->FindNearestEnemy() == Near);
     const float Before = Near->GetCombatHealth();
+    const float FarBefore = Far->GetCombatHealth();
     auto* Shot = Turret->FireAtNearestEnemy();
     if (!TestNotNull(TEXT("Turret fires projectile"), Shot)) return false;
     TestEqual(TEXT("Firing alone does not damage target"), Near->GetCombatHealth(), Before);
@@ -95,7 +97,7 @@ bool FTurretTargetTest::RunTest(const FString& Parameters)
     Fixture.Advance(0.4f);
     TestEqual(TEXT("Moving projectile applies its own damage through GAS"), Near->GetCombatHealth(), Before - 10.0f);
     TestTrue(TEXT("Projectile is consumed on impact"), !IsValid(Shot) || Shot->IsActorBeingDestroyed());
-    TestEqual(TEXT("Other enemy unharmed"), Far->GetCombatHealth(), 100.0f);
+    TestEqual(TEXT("Other enemy unharmed"), Far->GetCombatHealth(), FarBefore);
     auto* Wall = Fixture.Wall(FVector(250, 0, 100));
     TestTrue(TEXT("Wall occludes nearest enemy; visible alternative selected"), Turret->FindNearestEnemy() == Far);
     Far->SetActorHiddenInGame(true);
@@ -141,12 +143,14 @@ bool FTurretAutomaticFireTest::RunTest(const FString& Parameters)
     FTurretTestWorld Fixture;
     Fixture.Turret(FVector(0, 0, 100), nullptr, 60.0f, 0.15f);
     auto* Enemy = Fixture.Enemy(FVector(400, 0, 100));
+    const float Before = Enemy->GetCombatHealth();
     Fixture.Advance(0.5f);
-    TestTrue(TEXT("Timer automatically fires and projectiles hit"), Enemy->GetCombatHealth() < 100.0f);
+    TestTrue(TEXT("Timer automatically fires and projectiles hit"), Enemy->GetCombatHealth() < Before);
 
     auto* Player = Fixture.World->SpawnActor<ATestCharacter>(FVector(0, 1000, 100), FRotator::ZeroRotator);
     auto* PlayerASC = CastChecked<UCombatAbilitySystemComponent>(Player->GetAbilitySystemComponent());
     auto* Shot = Fixture.World->SpawnActor<ATurretProjectile>(FVector(0, 1200, 100), FRotator::ZeroRotator);
+    Shot->DispatchBeginPlay();
     TestFalse(TEXT("Zero direction rejected"), Shot->Launch(FVector::ZeroVector));
     TestTrue(TEXT("Valid projectile launch"), Shot->Launch(FVector::ForwardVector));
     FHitResult Hit;
@@ -155,11 +159,12 @@ bool FTurretAutomaticFireTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("Friendly blocking impact consumes projectile"), !IsValid(Shot) || Shot->IsActorBeingDestroyed());
 
     auto* ShortLived = Fixture.World->SpawnActor<ATurretProjectile>(FVector(0, -1000, 100), FRotator::ZeroRotator);
-    ShortLived->DispatchBeginPlay();
     ShortLived->MaxLifetime = 0.1f;
     ShortLived->Launch(FVector::ForwardVector);
+    ShortLived->DispatchBeginPlay();
+    TestTrue(TEXT("Early-launched movement remains ticking after BeginPlay"), ShortLived->Movement->IsComponentTickEnabled());
     Fixture.Advance(0.2f);
-    TestTrue(TEXT("Missed projectile expires"), !IsValid(ShortLived) || ShortLived->IsActorBeingDestroyed());
+    TestTrue(TEXT("Early-launched projectile keeps configured lifetime after BeginPlay"), !IsValid(ShortLived) || ShortLived->IsActorBeingDestroyed());
     return true;
 }
 

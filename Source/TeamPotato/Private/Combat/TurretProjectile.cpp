@@ -45,6 +45,8 @@ bool ATurretProjectile::Launch(FVector Direction)
     bLaunched = true;
     if (GetOwner()) Collision->IgnoreActorWhenMoving(GetOwner(), true);
     if (GetInstigator()) Collision->IgnoreActorWhenMoving(GetInstigator(), true);
+    // A launch before BeginPlay must survive Actor::BeginPlay resetting the initial lifespan.
+    InitialLifeSpan = MaxLifetime;
     SetLifeSpan(MaxLifetime);
     SetActorRotation(Direction.Rotation());
     Movement->InitialSpeed = Speed;
@@ -53,7 +55,9 @@ bool ATurretProjectile::Launch(FVector Direction)
     Collision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
     if (!bImpacted)
     {
-        Movement->Activate();
+        // Movement tick registration uses bAutoActivate, including registration after an early launch.
+        Movement->bAutoActivate = true;
+        Movement->Activate(true);
         Trail->Activate();
     }
     return true;

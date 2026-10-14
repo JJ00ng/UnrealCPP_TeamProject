@@ -9,6 +9,8 @@
 #include "Subsystem/Save/PlayerSaveData.h"
 #include "CharacterSubsystem.generated.h"
 
+class AGameModeBase;
+
 // 델리게이트 선언: 선택된 캐릭터 타입이 변경되었을 때 알림
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnSelectedCharacterChanged);
 
@@ -119,6 +121,12 @@ public:
     FOnWalkSpeedChanged OnWalkSpeedChanged;
 
 private:
+	// Runs before GameMode spawns its default pawn, including after OpenLevel.
+	void HandleGameModeInitialized(AGameModeBase* GameMode);
+	FDelegateHandle GameModeInitializedHandle;
+
+	friend class FCharacterSelectionTravelTest;
+
 	// 데이터 테이블 로드
 	void LoadAndCacheCharacterData();
 

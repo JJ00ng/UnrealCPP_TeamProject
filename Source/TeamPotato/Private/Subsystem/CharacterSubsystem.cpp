@@ -5,6 +5,7 @@
 #include "Common/MyGameSettings.h"
 #include "Player/TestCharacter.h"
 #include "Component/WeaponComponent.h"
+#include "GameFramework/GameModeBase.h"
 
 void UCharacterSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -12,6 +13,9 @@ void UCharacterSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	//UE_LOG(LogTemp, Warning, TEXT("UCharacterSubsystem::Initialize"));
 
 	LoadAndCacheCharacterData();
+
+    GameModeInitializedHandle = FGameModeEvents::OnGameModeInitializedEvent().AddUObject(
+        this, &ThisClass::HandleGameModeInitialized);
 
     if(CharacterDataCache.Num() > 0)
     {
@@ -31,12 +35,39 @@ void UCharacterSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 void UCharacterSubsystem::Deinitialize()
 {
+	FGameModeEvents::OnGameModeInitializedEvent().Remove(GameModeInitializedHandle);
+	GameModeInitializedHandle.Reset();
 	//UE_LOG(LogTemp, Warning, TEXT("UCharacterSubsystem::Deinitialized"));
 
 	CharacterDataTable = nullptr;
 	CharacterDataCache.Empty();
 
 	Super::Deinitialize();
+}
+
+void UCharacterSubsystem::HandleGameModeInitialized(AGameModeBase* GameMode)
+{
+    // The delegate is global: never change another PIE/game instance or menu/spectator modes.
+    if (!IsValid(GameMode) || GameMode->GetGameInstance() != GetGameInstance() ||
+        !GameMode->HasAuthority() || !GameMode->DefaultPawnClass ||
+        !GameMode->DefaultPawnClass->IsChildOf(ATestCharacter::StaticClass()))
+    {
+        return;
+    }
+
+    const FCharacterDataTableRow* SelectedRow = CharacterDataCache.Find(PlayerSaveData.SelectedCharacterType);
+    if (!SelectedRow || !SelectedRow->CharacterClass ||
+        SelectedRow->CharacterClass->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Character selection has no spawnable class for type %d; keeping GameMode default."),
+            static_cast<int32>(PlayerSaveData.SelectedCharacterType));
+        return;
+    }
+
+    // Change this world's GameMode instance, not its BP defaults or the selected player's saved stats.
+    GameMode->DefaultPawnClass = SelectedRow->CharacterClass;
+    UE_LOG(LogTemp, Log, TEXT("Selected character for %s: %s"),
+        *GetNameSafe(GameMode), *GetNameSafe(SelectedRow->CharacterClass.Get()));
 }
 
 void UCharacterSubsystem::LoadAndCacheCharacterData()
@@ -165,6 +196,8 @@ void UCharacterSubsystem::PossessSelectedCharacterType(ECharacterType InCharacte
     if (NewPawn)
     {
         GetWorld()->GetFirstPlayerController()->Possess(NewPawn);
+        // Keep later respawns in this world consistent with the new selection too.
+        HandleGameModeInitialized(GetWorld()->GetAuthGameMode());
     }
 }
 
