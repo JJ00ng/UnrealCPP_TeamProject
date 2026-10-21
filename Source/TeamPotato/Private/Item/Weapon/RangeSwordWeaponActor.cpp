@@ -6,6 +6,7 @@
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Player/TestCharacter.h"
 #include "Combat/CombatFunctionLibrary.h"
+#include "Combat/RangedTargetingComponent.h"
 
 void ARangeSwordWeaponActor::EndAttack()
 {
@@ -22,10 +23,12 @@ void ARangeSwordWeaponActor::EndAttack()
     FVector Forward = OwnerCharacter->GetActorForwardVector();
     FVector SpawnLocation = OwnerCharacter->GetActorLocation() + Forward * 100.f + FVector(0, 0, 50.f);
     FRotator SpawnRotation = OwnerCharacter->GetActorRotation();
+    if (const auto* Targeting = OwnerCharacter->GetRangedTargeting())
+        SpawnRotation = Targeting->ResolveFireDirection(SpawnLocation, Forward).Rotation();
 
     FActorSpawnParameters SpawnParams;
     SpawnParams.Owner = OwnerCharacter;
-    SpawnParams.Instigator = OwnerCharacter->GetInstigator();
+    SpawnParams.Instigator = OwnerCharacter;
     SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
     ASlashActor* Slash = GetWorld()->SpawnActor<ASlashActor>(
@@ -37,7 +40,7 @@ void ARangeSwordWeaponActor::EndAttack()
 
     if (Slash)
     {
-        // 바라보는 방향으로만 이동
+        // Use the same shot-time lock-on direction as the other ranged attacks.
         FVector ForwardDir = SpawnRotation.Vector();
         Slash->ProjectileMovementComponent->Velocity =
             ForwardDir * Slash->ProjectileMovementComponent->InitialSpeed;

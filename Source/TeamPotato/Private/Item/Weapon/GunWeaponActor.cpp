@@ -28,7 +28,7 @@ AGunWeaponActor::AGunWeaponActor()
 
 void AGunWeaponActor::Attack(ATestCharacter* OwningPlayer)
 {
-    if (!UCombatFunctionLibrary::CanActorAttack(this)) return;
+    if (!HasAuthority() || !UCombatFunctionLibrary::CanActorAttack(this)) return;
     Super::Attack(OwningPlayer);
 
 	// 오류 검사
@@ -37,41 +37,10 @@ void AGunWeaponActor::Attack(ATestCharacter* OwningPlayer)
 	OwningPlayer = Cast<ATestCharacter>(GetOwner());
 	if (!OwningPlayer) return;
 
-	APlayerController* PC = Cast<APlayerController>(OwningPlayer->GetController());
-	if (!PC) return;
-
 	// 총구 위치 계산
 	FTransform SocketTransform = WeaponMesh->GetSocketTransform("FirePoint", RTS_World);
 	FVector MuzzleLocation = SocketTransform.GetLocation();
-
-	// 화면 중심 좌표 계산
-	FVector2D ViewportSize;
-	GEngine->GameViewport->GetViewportSize(ViewportSize);
-	FVector2D ScreenCenter(ViewportSize * 0.5f);
-
-	// 화면 중심에서 월드 방향 가져오기
-	FVector WorldLocation, WorldDirection;
-	UGameplayStatics::DeprojectScreenToWorld(
-		PC,
-		ScreenCenter,
-		WorldLocation,
-		WorldDirection
-	);
-
-	// Ray 설정
-	FVector Start = WorldLocation;
-	FVector End = Start + WorldDirection * 10000.f;
-
-	FHitResult Hit;
-	FVector HitLocation = End;
-
-	if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility))
-	{
-		HitLocation = Hit.Location; // 충돌한 위치
-	}
-
-	// 발사 방향 계산
-	FVector ShootDirection = (HitLocation - MuzzleLocation).GetSafeNormal();
+	const FVector ShootDirection = GetRangedShootDirection(OwningPlayer, MuzzleLocation);
 
     FActorSpawnParameters SpawnParams;
     SpawnParams.Owner = OwningPlayer;          // 총알의 주인을 플레이어로 설정

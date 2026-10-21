@@ -20,6 +20,7 @@
 #include "Subsystem/GameStateSubsystem.h"
 #include "Combat/CombatAbilitySystemComponent.h"
 #include "Combat/CombatFunctionLibrary.h"
+#include "Combat/RangedTargetingComponent.h"
 #include "Abilities/GameplayAbility.h"
 #include "Engine/DamageEvents.h"
 
@@ -59,6 +60,7 @@ ATestCharacter::ATestCharacter()
     PerkComponent = CreateDefaultSubobject<UPerkComponent>(TEXT("PerkComponent"));
 
     CombatAbilitySystem = CreateDefaultSubobject<UCombatAbilitySystemComponent>(TEXT("CombatAbilitySystem"));
+    RangedTargeting = CreateDefaultSubobject<URangedTargetingComponent>(TEXT("RangedTargeting"));
 }
 
 UAbilitySystemComponent* ATestCharacter::GetAbilitySystemComponent() const

@@ -2,6 +2,7 @@
 #include "Combat/CombatAbilitySystemComponent.h"
 #include "Combat/CombatTags.h"
 #include "Combat/TurretProjectile.h"
+#include "Combat/RangedTargetingComponent.h"
 #include "Components/SphereComponent.h"
 #include "Engine/World.h"
 #include "Enemy/EnemyCharacter.h"
@@ -39,8 +40,11 @@ bool UProjectileSkillAbility::GetLaunchTransform(const FGameplayAbilityActorInfo
     const auto* Defaults = ProjectileClass->GetDefaultObject<ATurretProjectile>();
     if (!World || !IsProjectileConfigured(Defaults)) return false;
 
-    const FRotator Rotation(0.0f, Character->GetActorRotation().Yaw, 0.0f);
     const FVector Start = Character->GetActorLocation() + FVector(0.0f, 0.0f, SpawnOffset.Z);
+    const auto* Targeting = Character->GetRangedTargeting();
+    AEnemyCharacter* LockedTarget = Targeting ? Targeting->FindLockOnTarget(Start) : nullptr;
+    const FVector Facing = LockedTarget ? (LockedTarget->GetActorLocation() - Start).GetSafeNormal2D() : Character->GetActorForwardVector();
+    const FRotator Rotation(0.0f, Facing.IsNearlyZero() ? Character->GetActorRotation().Yaw : Facing.Rotation().Yaw, 0.0f);
     FVector Location = Character->GetActorLocation() + Rotation.RotateVector(SpawnOffset);
     if (Location.ContainsNaN() || Rotation.ContainsNaN()) return false;
 
@@ -59,7 +63,8 @@ bool UProjectileSkillAbility::GetLaunchTransform(const FGameplayAbilityActorInfo
         Location = Hit.Location - (Location - Start).GetSafeNormal();
     }
 
-    OutTransform = FTransform(Rotation, Location);
+    const FVector Direction = LockedTarget ? (LockedTarget->GetActorLocation() - Location).GetSafeNormal() : Rotation.Vector();
+    OutTransform = FTransform(Direction.IsNearlyZero() ? Rotation : Direction.Rotation(), Location);
     return true;
 }
 

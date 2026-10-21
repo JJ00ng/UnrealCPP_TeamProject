@@ -24,6 +24,8 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+    FVector GetRangedShootDirection(const class ATestCharacter* Player, const FVector& MuzzleLocation) const;
+
 public:
 	// 공격 함수
     virtual void Attack(class ATestCharacter* OwningPlayer);

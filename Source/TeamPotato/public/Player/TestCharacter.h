@@ -14,6 +14,7 @@
 class AWeaponPickupActor;
 class AWeaponBoxActor;
 class UCombatAbilitySystemComponent;
+class URangedTargetingComponent;
 class UGameplayAbility;
 struct FGameplayEffectContextHandle;
 
@@ -34,6 +35,9 @@ public:
     // Activates the skill configured on this character BP; GA handles cost/cooldown and effects.
     UFUNCTION(BlueprintCallable, Category = "Combat|Skill")
     bool TryUseCharacterSkill();
+
+    UFUNCTION(BlueprintPure, Category = "Combat|Lock On")
+    URangedTargetingComponent* GetRangedTargeting() const { return RangedTargeting; }
 
 protected:
     virtual void PostInitializeComponents() override;
@@ -368,6 +372,9 @@ private:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
     TObjectPtr<UCombatAbilitySystemComponent> CombatAbilitySystem;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+    TObjectPtr<URangedTargetingComponent> RangedTargeting;
 
     // 공격 속도(애니메이션 조절 및 마우스 클릭 연사 방지용)
     float AttackSpeed = 1.0f;

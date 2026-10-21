@@ -6,6 +6,7 @@
 #include "Combat/CombatAbilitySystemComponent.h"
 #include "Combat/CombatEffects.h"
 #include "Combat/CombatTags.h"
+#include "Combat/RangedTargetingComponent.h"
 #include "Components/BoxComponent.h"
 #include "Enemy/EnemyCharacter.h"
 #include "Engine/Engine.h"
@@ -174,6 +175,32 @@ bool FProjectileSkillGateTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("Velocity follows yaw"), Shot->Movement->Velocity.GetSafeNormal().Equals(FVector::RightVector, 0.01f));
     Fixture.ASC->MarkDead();
     TestFalse(TEXT("Dead caster cannot activate"), Fixture.ASC->TryActivateAbility(Fixture.Handle, false));
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FProjectileSkillLockOnTest, "TeamPotato.Combat.ProjectileSkill.LockOnAndFallback",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FProjectileSkillLockOnTest::RunTest(const FString& Parameters)
+{
+    FProjectileSkillWorld Fixture;
+    auto* Enemy = Fixture.World->SpawnActor<AEnemyCharacter>(FVector(500, 200, 100), FRotator::ZeroRotator);
+    const float Before = Enemy->GetCombatHealth();
+    TestTrue(TEXT("Off-axis enemy allows skill activation"), Fixture.ASC->TryActivateAbility(Fixture.Handle, false));
+    auto* Shot = Fixture.FirstShot();
+    if (!TestNotNull(TEXT("Lock-on shot spawned"), Shot)) return false;
+    TestTrue(TEXT("Skill velocity aims from muzzle to enemy center"),
+        Shot->Movement->Velocity.GetSafeNormal().Equals((Enemy->GetActorLocation() - Shot->GetActorLocation()).GetSafeNormal(), 0.001f));
+    TestTrue(TEXT("Skill spawn moves toward the selected enemy"), Shot->GetActorLocation().Y > 0.0f);
+    const float Damage = Shot->Damage;
+    Fixture.Advance(0.4f);
+    TestEqual(TEXT("Off-axis target is physically hit through GAS"), Enemy->GetCombatHealth(), Before - Damage);
+
+    Fixture.Player->GetRangedTargeting()->bEnableLockOn = false;
+    TestTrue(TEXT("Lock-on can be disabled without disabling the skill"), Fixture.ASC->TryActivateAbility(Fixture.Handle, false));
+    Shot = Fixture.FirstShot();
+    if (!TestNotNull(TEXT("Fallback shot spawned"), Shot)) return false;
+    TestTrue(TEXT("Disabled lock-on preserves forward fire"), Shot->Movement->Velocity.GetSafeNormal().Equals(FVector::ForwardVector, 0.001f));
     return true;
 }
 

@@ -6,6 +6,9 @@
 #include "Component/PlayerResource.h"
 #include "Data/WeaponDataAsset.h"
 #include "Kismet/GameplayStatics.h"
+#include "Combat/RangedTargetingComponent.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/World.h"
 
 // Sets default values
 AWeaponBase::AWeaponBase()
@@ -33,6 +36,35 @@ void AWeaponBase::BeginPlay()
 
 void::AWeaponBase::Attack(class ATestCharacter* OwningPlayer)
 {
+}
+
+FVector AWeaponBase::GetRangedShootDirection(const ATestCharacter* Player, const FVector& MuzzleLocation) const
+{
+    FVector Direction = Player->GetActorForwardVector();
+    if (const auto* PC = Cast<APlayerController>(Player->GetController()))
+    {
+        int32 Width = 0;
+        int32 Height = 0;
+        PC->GetViewportSize(Width, Height);
+        FVector Origin;
+        FVector ViewDirection;
+        if (Width > 0 && Height > 0 &&
+            PC->DeprojectScreenPositionToWorld(Width * 0.5f, Height * 0.5f, Origin, ViewDirection))
+        {
+            FVector AimPoint = Origin + ViewDirection * 10000.0f;
+            FCollisionQueryParams Query(SCENE_QUERY_STAT(WeaponAim), false, Player);
+            Query.AddIgnoredActor(this);
+            TArray<AActor*> Attachments;
+            Player->GetAttachedActors(Attachments, true, true);
+            Query.AddIgnoredActors(Attachments);
+            FHitResult Hit;
+            if (GetWorld()->LineTraceSingleByChannel(Hit, Origin, AimPoint, ECC_Visibility, Query)) AimPoint = Hit.ImpactPoint;
+            Direction = (AimPoint - MuzzleLocation).GetSafeNormal();
+        }
+    }
+    if (const auto* Targeting = Player->GetRangedTargeting())
+        return Targeting->ResolveFireDirection(MuzzleLocation, Direction);
+    return Direction;
 }
 
 void AWeaponBase::InitializeFromData(UWeaponDataAsset* InData)
