@@ -1,0 +1,13 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "1.0",
+  "FriendlyName": "New Enemy Animation Tools",
+  "Description": "Optional editor-only helpers for preparing NewEnemy animation blueprints.",
+  "Category": "Editor",
+  "EnabledByDefault": false,
+  "CanContainContent": false,
+  "Modules": [
+    { "Name": "NewEnemyAnimationTools", "Type": "Editor", "LoadingPhase": "Default" }
+  ]
+}
